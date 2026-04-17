@@ -30,6 +30,98 @@ const TARGET_TITLES = [
   'IT Manager',
 ];
 
+// Hardcoded fake prospects used by Run Demo. Realistic Ontario mid-market
+// profiles with competitor security stacks. Structure matches what Apollo
+// would return so the rest of the pipeline is identical.
+const DEMO_PROSPECTS = [
+  {
+    org: {
+      id: 'demo_1',
+      name: 'Nordic Steel Industries',
+      website_url: 'https://nordicsteelindustries.example',
+      primary_domain: 'nordicsteelindustries.example',
+      industry: 'Industrial Manufacturing',
+      estimated_num_employees: 820,
+      city: 'Hamilton', state: 'Ontario', country: 'Canada',
+      linkedin_url: '',
+      short_description: 'Specialty steel fabrication for automotive and industrial customers, with four plants across Southern Ontario.',
+      technologies: [
+        { uid: 'fortinet', name: 'Fortinet FortiGate' },
+        { uid: 'sophos', name: 'Sophos Intercept X' },
+        { uid: 'vmware', name: 'VMware vSphere' },
+        { uid: 'office-365', name: 'Microsoft 365' },
+      ],
+    },
+    contacts: [
+      { first_name: 'Jordan', last_name: 'Petrov', title: 'Chief Information Officer',
+        email: 'jordan.petrov@nordicsteelindustries.example',
+        linkedin_url: 'https://linkedin.com/in/demo-petrov' },
+      { first_name: 'Mara', last_name: 'Singh', title: 'Director of IT',
+        email: 'mara.singh@nordicsteelindustries.example',
+        linkedin_url: 'https://linkedin.com/in/demo-singh' },
+      { first_name: 'Ben', last_name: 'Okafor', title: 'IT Manager',
+        email: '',
+        linkedin_url: 'https://linkedin.com/in/demo-okafor' },
+    ],
+  },
+  {
+    org: {
+      id: 'demo_2',
+      name: 'Riverbank Capital Partners',
+      website_url: 'https://riverbankcapital.example',
+      primary_domain: 'riverbankcapital.example',
+      industry: 'Financial Services',
+      estimated_num_employees: 1180,
+      city: 'Toronto', state: 'Ontario', country: 'Canada',
+      linkedin_url: '',
+      short_description: 'Independent asset management firm serving Canadian pension plans and institutional investors. Regulated by OSFI.',
+      technologies: [
+        { uid: 'crowdstrike', name: 'CrowdStrike Falcon' },
+        { uid: 'zscaler', name: 'Zscaler Internet Access' },
+        { uid: 'arctic-wolf', name: 'Arctic Wolf MDR' },
+        { uid: 'okta', name: 'Okta' },
+      ],
+    },
+    contacts: [
+      { first_name: 'Priya', last_name: 'Nair', title: 'Chief Information Security Officer',
+        email: 'pnair@riverbankcapital.example',
+        linkedin_url: 'https://linkedin.com/in/demo-nair' },
+      { first_name: 'Wes', last_name: 'Callahan', title: 'VP of Security',
+        email: 'wes.callahan@riverbankcapital.example',
+        linkedin_url: 'https://linkedin.com/in/demo-callahan' },
+      { first_name: 'Thandi', last_name: 'Mokoena', title: 'Director of Information Technology',
+        email: 'tmokoena@riverbankcapital.example',
+        linkedin_url: '' },
+    ],
+  },
+  {
+    org: {
+      id: 'demo_3',
+      name: 'Larkspur Health Systems',
+      website_url: 'https://larkspurhealth.example',
+      primary_domain: 'larkspurhealth.example',
+      industry: 'Healthcare Software',
+      estimated_num_employees: 340,
+      city: 'Ottawa', state: 'Ontario', country: 'Canada',
+      linkedin_url: '',
+      short_description: 'SaaS platform for clinical workflow and patient records, serving community hospitals across Ontario and Quebec.',
+      technologies: [
+        { uid: 'sentinelone', name: 'SentinelOne Singularity' },
+        { uid: 'cloudflare', name: 'Cloudflare Zero Trust' },
+        { uid: 'aws', name: 'Amazon Web Services' },
+      ],
+    },
+    contacts: [
+      { first_name: 'Avery', last_name: 'Liang', title: 'CIO',
+        email: 'avery.liang@larkspurhealth.example',
+        linkedin_url: 'https://linkedin.com/in/demo-liang' },
+      { first_name: 'Rita', last_name: 'Esposito', title: 'IT Manager',
+        email: '',
+        linkedin_url: 'https://linkedin.com/in/demo-esposito' },
+    ],
+  },
+];
+
 const SYSTEM_PROMPT = `You are a senior Palo Alto Networks account strategist. \
 You build outbound prospect plans for a Territory Account Manager selling into \
 mid-market companies (1,500 employees or fewer) in Ontario, Canada.
@@ -119,7 +211,8 @@ const OUTPUT_SCHEMA = {
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu('Prospect Scraper')
-    .addItem('Run', 'runProspectPipeline')
+    .addItem('Run Demo (no Apollo needed)', 'runDemoPipeline')
+    .addItem('Run (live via Apollo)', 'runProspectPipeline')
     .addSeparator()
     .addItem('Initialize sheets', 'initializeSheets')
     .addToUi();
@@ -160,6 +253,54 @@ function initializeSheets() {
 }
 
 // -------------------- Main --------------------
+
+function runDemoPipeline() {
+  const cfg = readConfig();
+  if (!cfg.anthropicKey) {
+    SpreadsheetApp.getUi().alert(
+      'Missing Anthropic API key. Fill it on the Config sheet (cell B2) ' +
+      'and try again. Apollo key is not needed for the demo.');
+    return;
+  }
+
+  const startTime = Date.now();
+  const RUNTIME_BUDGET_MS = 5 * 60 * 1000;
+
+  let generated = 0;
+  for (const { org, contacts } of DEMO_PROSPECTS) {
+    if (Date.now() - startTime > RUNTIME_BUDGET_MS) {
+      logResult(org, detectCompetitors(org), 0, '',
+                'Demo skipped — approaching 6-min runtime cap.');
+      continue;
+    }
+    const competitors = detectCompetitors(org);
+
+    let strategy;
+    try {
+      strategy = generateStrategy(cfg.anthropicKey, org, contacts, competitors);
+    } catch (e) {
+      logResult(org, competitors, contacts.length, '',
+                'Demo — Claude generation failed: ' + e.message);
+      continue;
+    }
+
+    let docUrl;
+    try {
+      docUrl = createAccountDoc(org, contacts, competitors, strategy, cfg.folderId);
+    } catch (e) {
+      logResult(org, competitors, contacts.length, '',
+                'Demo — doc creation failed: ' + e.message);
+      continue;
+    }
+
+    logResult(org, competitors, contacts.length, docUrl, 'DEMO OK');
+    generated++;
+  }
+
+  SpreadsheetApp.getUi().alert(
+    'Demo done. ' + generated + ' Google Docs generated. Click links in the ' +
+    'Results sheet.');
+}
 
 function runProspectPipeline() {
   const cfg = readConfig();

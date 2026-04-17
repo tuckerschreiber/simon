@@ -2,13 +2,20 @@
 
 You don't install anything. You just copy-paste into a Google Sheet. Should take about 5 minutes the first time.
 
-## What you'll need
+## Recommended: try the demo first
 
-1. A Google account (work or personal).
-2. An **Apollo API key** — from apollo.io → Settings → Integrations → API.
-3. An **Anthropic API key** — from console.anthropic.com → API Keys.
+The **Run Demo** option uses 3 fake Ontario prospects (with realistic tech stacks and contacts) baked into the script. It skips Apollo entirely — you only need an Anthropic API key. Claude still generates real strategy docs and real draft emails, and they still land in your Google Drive. This is the fastest way to see what the tool actually produces.
 
-Grab both keys before you start and keep them somewhere handy (a sticky note, a password manager, whatever).
+**What you'll need for the demo:**
+
+1. A Google account.
+2. An **Anthropic API key** — from console.anthropic.com → API Keys. New accounts get ~$5 free credits — more than enough for many demo runs (each prospect costs ~$0.05).
+
+**What you'll need for live runs (Apollo):**
+
+3. An **Apollo API key** with API access — from apollo.io → Settings → Integrations → API. **Note:** Apollo's free tier does **not** include API access; you need a paid plan. If you don't have one, stick with the demo or replace the company-discovery step (we can rework the pipeline to accept a list of companies you provide).
+
+Grab the keys you need before you start and keep them somewhere handy.
 
 ---
 
@@ -64,8 +71,8 @@ On the **Config** tab:
 
 | Field | What to put |
 |---|---|
-| Apollo API Key | (paste your Apollo key in cell B1) |
-| Anthropic API Key | (paste your Anthropic key in cell B2) |
+| Apollo API Key | Paste your Apollo key in cell B1 — or leave blank for the demo |
+| Anthropic API Key | Paste your Anthropic key in cell B2 — **required for both demo and live** |
 | Location | `Ontario, Canada` (already filled in) |
 | Max Employees | `1500` (already filled in) |
 | Max Prospects Per Run | `3` (start small — increase once you trust it) |
@@ -75,10 +82,19 @@ On the **Config** tab:
 
 ## Step 8 — Run it
 
-1. Click **Prospect Scraper → Run**.
+**For the demo (no Apollo key needed):**
+
+1. Click **Prospect Scraper → Run Demo (no Apollo needed)**.
 2. First run only: another permission dialog may appear for the Docs/Drive scopes. Allow it.
-3. Wait. Each prospect takes 30–90 seconds end-to-end. If you ran with "Max Prospects Per Run = 3", expect 2–4 minutes of waiting. The tab will look frozen — that's normal.
-4. You'll see a popup "Done. Check the Results sheet for links."
+3. Wait ~2–3 minutes. Three fake prospects are processed in sequence; the tab will look frozen — that's normal.
+4. Popup: "Demo done. 3 Google Docs generated."
+
+**For a live run (Apollo key required):**
+
+1. Click **Prospect Scraper → Run (live via Apollo)**.
+2. Same permission dialog as above on first run.
+3. Wait 2–4 minutes. Each prospect takes 30–90 seconds end-to-end.
+4. Popup: "Done. Check the Results sheet for links."
 
 ## Step 9 — Open your docs
 
