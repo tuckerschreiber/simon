@@ -1,88 +1,43 @@
 # PANW Prospect Scraper
 
-Generates account strategy plans for prospective Palo Alto Networks customers
-in Ontario, Canada. Pulls companies and contacts from Apollo.io, asks Claude
-Opus 4.7 to draft a full plan + per-persona outreach emails, and writes one
-`.docx` per prospect.
+A Google Sheet + Apps Script that finds prospective Palo Alto Networks customers in Ontario, enriches them with contact data, and writes one Google Doc per prospect with a full account strategy plan and draft outreach emails for CIO / CISO / VP of Security / Director of IT / IT Manager.
+
+No install. No terminal. Runs inside a Google Sheet.
 
 ## What it does
 
-1. Queries Apollo for Ontario companies with ≤ 1,500 employees running a
-   competitor security stack (Fortinet, Check Point, Cisco, Zscaler,
-   CrowdStrike, SentinelOne, Netskope, Cloudflare, Arctic Wolf, Sophos).
-2. Skips anyone whose tech stack shows PANW/Prisma/Cortex — they're probably
-   already customers.
-3. Pulls CIO / CISO / VP/Director of Security / Director of IT / IT Manager
-   contacts at each company.
-4. Asks Claude to produce a strategy doc: competitive landscape, pain
-   hypotheses, PANW product fit, recommended entry point, draft emails.
-5. Writes `output/<company>_account_plan.docx` per prospect.
+1. Queries Apollo.io for Ontario companies with ≤ 1,500 employees that are running a competitor security stack (Fortinet, Check Point, Cisco, Zscaler, CrowdStrike, SentinelOne, Netskope, Cloudflare, Arctic Wolf, Sophos).
+2. Skips anyone whose stack already shows PANW / Prisma / Cortex — they're likely existing customers.
+3. Pulls contact details for CIO / CISO / VP of Security / Director of IT / IT Manager.
+4. Asks Claude Opus 4.7 to produce a per-account strategy: pain hypotheses, PANW product fit, recommended entry point, and a tailored outreach email for each persona.
+5. Creates one Google Doc per prospect and logs the link back to a "Results" sheet.
 
-## Setup
+## Getting started
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# edit .env and add APOLLO_API_KEY and ANTHROPIC_API_KEY
-```
+See **[SETUP.md](SETUP.md)** for the step-by-step setup. It's about 5 minutes of copy-paste in your browser — no software to install.
 
-Get the keys:
+## Files
 
-- **Apollo**: apollo.io → Settings → Integrations → API. Free tier has ~50
-  credits/month and rate-limits API access, so start small.
-- **Anthropic**: console.anthropic.com → API Keys.
+| File | What it is |
+|---|---|
+| `apps_script/Code.gs` | The main script you paste into Apps Script |
+| `apps_script/appsscript.json` | Permissions manifest |
+| `SETUP.md` | Step-by-step setup guide |
 
-## Run
+## Customizing
 
-```bash
-# default: 10 prospects, full pipeline
-python src/main.py
+All the filters and messaging are inside `Code.gs`:
 
-# more prospects
-python src/main.py --limit 25
+- **Competitor tech to flag** — `COMPETITOR_TECH_UIDS` near the top.
+- **PANW tech to exclude** — `PANW_TECH_UIDS`.
+- **Personas to target** — `TARGET_TITLES`.
+- **PANW product knowledge / messaging** — the `SYSTEM_PROMPT` constant. Edit this to change tone, talking points, or what Claude emphasizes.
 
-# just see what Apollo returns without burning Claude credits
-python src/main.py --dry-run
-```
+After editing, save the file in Apps Script. Changes take effect on the next Run.
 
-Output lands in `./output/` as `<company>_account_plan.docx`. Drag-and-drop
-into Google Drive → right-click → "Open with Google Docs" to convert.
+## Caveats to read before real outreach
 
-## Configuration
-
-All targeting lives at the top of `src/main.py`:
-
-- `TARGET_LOCATIONS` — currently `["Ontario, Canada"]`
-- `MAX_EMPLOYEES` — currently `1500`
-- `TARGET_TITLES` — persona title list
-
-Competitor tech signals and the "is PANW customer" check are in
-`src/apollo_client.py` (`COMPETITOR_TECH_UIDS`, `PANW_TECH_UIDS`).
-
-The PANW product knowledge and messaging style guide that Claude uses is in
-`src/strategy_generator.py` (`SYSTEM_PROMPT`). That block is prompt-cached, so
-accounts 2–N cost ~90% less on input tokens than account 1.
-
-## Caveats
-
-- Apollo's free tier rate-limits aggressively. If you hit 429s, the client
-  backs off automatically, but expect slow runs on high `--limit` values.
-- Emails aren't guaranteed — Apollo often returns `email_status: unverified`
-  or no email at all on free tier. LinkedIn URLs usually come through.
-- Claude is instructed not to invent case studies or statistics, but always
-  read drafts before sending.
-- "Not a PANW customer" is inferred from tech-stack signals, not ground truth.
-  Double-check against your CRM before a real outreach.
-
-## File layout
-
-```
-src/
-  apollo_client.py        Apollo.io API wrapper + tech-stack filters
-  strategy_generator.py   Claude Opus 4.7 call + Pydantic schema
-  doc_writer.py           python-docx renderer
-  main.py                 Orchestrator / CLI
-output/                   Generated .docx files (gitignored)
-```
+- Apollo's free tier is stingy: limited monthly credits, no guaranteed verified emails. Expect to get LinkedIn URLs more often than emails.
+- "Not a PANW customer" is inferred from tech-stack signals, not ground truth. Cross-check against your CRM before you send anything.
+- Claude is instructed not to invent customer names, stats, or case studies. Still — always read drafts before hitting send.
+- Each click of **Run** is capped at 6 minutes by Google Apps Script. Keep `Max Prospects Per Run` at 3–5 and run multiple times if you want more.
